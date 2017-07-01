@@ -1,0 +1,10 @@
+*~
+*.html
+*.yml
+*.csv
+*.pyc
+*.1
+*.pkl
+*.svg
+*.log
+*.txt
