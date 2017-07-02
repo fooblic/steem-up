@@ -1,0 +1,28 @@
+---
+iv: ""          # initial vector, pls see 'encrypt3.py'
+id: ""          # your encrypted posting key
+
+debug: False
+log: True
+out_file: "./upvote.txt"
+log_file: "./steem_up.log"
+rpc: "wss://steemd.steemit.com"
+account: "name"        # your steem account name w/o '@'
+weight: 50  # %
+
+# posts
+request_timeout: 0.33  # sec
+sleep_time: 10         # sec
+
+# votes
+limit: 15   # daily rate limit
+timeout: 3  # minutes
+
+following: ['fooblic']  # authors list
+
+# redis keys
+redis_host: "localhost"
+redis_port: 6379
+prefix: "steembot:"    # key prefix for redis
+exp_days: 8            # expired days
+
