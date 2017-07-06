@@ -42,13 +42,8 @@ def to_log(name):
     with open(lfile, 'a') as fl:
         fl.write("%s %s\n" % (time.asctime(), name))
 
-limit = float(rdb.get(prefix + "limit"))       # votes per day
-if limit < 1:
-    to_log("Exceed the limit!")
-    sys.exit(0)
-
 timeout = float(cfg['timeout'])        # minutes between votes
-vote_count = 0
+#vote_count = 0
 
 pk = getpass.getpass()  # secure input
 print(len(pk))
@@ -69,6 +64,41 @@ pp.pprint(steem.get_account(cfg['account']))
 del pk
 del out
 
+
+def voting(vkey, vurl, vlimit):
+    '''Vote the post'''
+
+    try:
+        steem.commit.vote(vurl, int(cfg["weight"]), account=cfg["account"])
+    except Exception as e:
+        #e = sys.exc_info()[0]
+        to_log("Error: %s" % e)
+
+    #index = float(rdb.get(prefix + "limit"))
+    rdb.set(prefix + "limit", vlimit - 1)
+
+    rdb.zadd(prefix + "upvoted", vkey, int(time.time()))
+    rdb.zrem(prefix + "index", vkey)
+
+    if log:
+        to_log("UPVOTE %s %s" % (vurl, cfg["weight"]))
+
+    time.sleep(random.uniform(3.5, 30))  # 3.5 - 30 sec    
+
+
+def skip(vkey, vurl, vlimit):
+    '''Remove the post from upvoting list'''
+
+    to_log("Exceed the limit %s!" % vlimit)
+    #TODO: save remove stats
+    rdb.zrem(prefix + "index", vkey)
+
+    if log:
+        to_log("REMOVE %s %s" % (vurl, cfg["weight"]))
+
+    time.sleep(timeout*60)  # minutes between votes
+
+
 while True:
 
     utcnow = time.gmtime()              #; print(utcnow) # UTC
@@ -83,22 +113,13 @@ while True:
         if log:
             to_log("NEW    %s" % (url))
 
-        #Vote
-        try:
-            steem.commit.vote(url, int(cfg["weight"]), account=cfg["account"])
-        except Exception as e:
-            #e = sys.exc_info()[0]
-            to_log("Error: %s" % e)
+        limit = float(rdb.get(prefix + "limit"))       # votes per day
+        if limit > 0:
+            #Vote
+            voting(key, url, limit)
 
-        index = float(rdb.get(prefix + "limit"))
-        rdb.set(prefix + "limit", index - 1)
+        else:
+            skip(key, url, limit)
 
-        if log:
-            to_log("UPVOTE %s %s" % (url, cfg["weight"]))
-
-        rdb.zadd(prefix + "upvoted", key, int(time.time()))
-        rdb.zrem(prefix + "index", key)
-        time.sleep(random.uniform(3.5, 30))  # 3.5 - 30 sec
-
-    vote_count += 1
+    #vote_count += 1
     time.sleep(timeout*60)  # minutes between votes
