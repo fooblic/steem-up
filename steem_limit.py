@@ -30,12 +30,14 @@ def to_log(name, value):
 CUR_LIM = float(rdb.get(PRE + "limit"))
 
 if CUR_LIM < LIM:
-    NEW_LIM = CUR_LIM + LIM/24  # per hour
-    rdb.set(PRE + "limit", NEW_LIM)
+    new_limit = CUR_LIM + LIM/24  # per hour
+    if new_limit > LIM:
+        new_limit = LIM
+    rdb.set(PRE + "limit", new_limit)
 
     if LOG:
         with open(LFILE, 'a') as fl:
-            fl.write("%s new_limit: %.1f\n" % (time.asctime(), NEW_LIM))
+            fl.write("%s new_limit: %.1f\n" % (time.asctime(), new_limit))
 
 NOW = time.mktime(time.gmtime())  # seconds
 KEYS = rdb.zrangebyscore(PRE + "upvoted", 0, NOW - 60 * 60 * 24 * 7)  # older then 7 days

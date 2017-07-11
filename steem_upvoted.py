@@ -34,7 +34,7 @@ for post in redis_keys[::-1]:  # from the list end
     authors.add(item['author'])
 
 report = "For last 24h\n "
-report += "%s rate limit\n" % rdb.get(PRE + "limit")
+report += "%.1f rate limit\n" % float(rdb.get(PRE + "limit"))
 report += "%s posts with authors:\n" % len(posts)
 report += ", ".join(str(s) for s in authors)
 
