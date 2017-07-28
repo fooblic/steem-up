@@ -136,12 +136,14 @@ tag: %s <br>
 link: %s <br>
 time: %s <br>
 title: %s <br>
+tags: %s <br>
 <a href="%s"> -> </a>
 </body></html>'''.encode('utf-8') % (read_stats['author'],
                 read_stats['parent_permlink'],
                 read_stats['permlink'],
                 read_stats['time'],
                 read_stats['title'],
+                str(json.loads(read_stats['json_metadata'])['tags']),
                 url)
 
             #out = pp.pformat(read_stats)

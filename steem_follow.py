@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 '''
-Get last following posts from Steem blockchain
+Get last following authors' posts from Steem blockchain
 Save it to Redis DB
 '''
+import os
 import pprint
 import time
 import json
@@ -18,12 +19,12 @@ import redis
 from pistonapi.steemnoderpc import SteemNodeRPC
 
 # My config
-my_config = yaml.load(open("steem_up.yml"))
-debug = my_config['debug']
-log   = my_config['log']
-rpc   = SteemNodeRPC(my_config['rpc'])
-prefix = my_config['prefix']
-days = int(my_config['exp_days'])
+CFG = yaml.load(open(os.environ["STEEM_UP"]))
+DEBUG = CFG['debug']
+LOG = CFG['log']
+RPC = SteemNodeRPC(CFG['rpc'])
+PRE = CFG['prefix']
+DAYS = int(CFG['exp_days'])
 
 try:
     rdb = redis.Redis(host="localhost", port=6379)
@@ -31,21 +32,22 @@ except Exception:
     print("Error connection to Redis DB")
     sys.exit(0)
 
-rdb.set(prefix + "limit", my_config['limit'])
+rdb.set(PRE + "limit", CFG['limit'])
 
-following = my_config['following']
+FOLLOW = CFG['following']
+STOP = CFG['stop_tags']
 
-config = rpc.get_config()
+config = RPC.get_config()
 block_interval = config["STEEMIT_BLOCK_INTERVAL"]
 
 pp = pprint.PrettyPrinter(indent=4)
 pp.pprint(config)
 
-props = rpc.get_dynamic_global_properties()
+props = RPC.get_dynamic_global_properties()
 li_block = props['last_irreversible_block_num']
 pp.pprint(props)
 
-last_block_time = rpc.get_block(li_block)['timestamp']
+last_block_time = RPC.get_block(li_block)['timestamp']
 time_last_block = dateutil.parser.parse(last_block_time)
 #pp.pprint(dys)
 
@@ -53,35 +55,52 @@ last_block = li_block
 block_count = 0
 
 
-def update_rdb(arr, rdb):
+def update_rdb(arr, db):
+    '''
+    Get dictionary and put post data to Redis
+    The data expires in DAYS constant
+    '''
     #print(arr)
 
     jdump = json.dumps(arr)        #; print(jdump)
     mh = hashlib.md5()
-    mh.update(jdump.encode('utf-8'))     
+    mh.update(jdump.encode('utf-8'))
     hinfo = mh.hexdigest()         #; print(hinfo)
     key = hinfo[:6]                #; print(key)
 
-    redis_key = "%s%s" % (prefix, key)
-    rdb.set(redis_key, jdump)
-    rdb.expire(redis_key, 60*60*24*days)
+    redis_key = "%s%s" % (PRE, key)
+    db.set(redis_key, jdump)
+    db.expire(redis_key, 60 * 60 * 24 * DAYS)
 
     time_dys = dateutil.parser.parse(arr['time'])
-    ttime    = time_dys.utctimetuple()         #; print(ttime)
-    rdb.zadd(prefix + "index", redis_key, int(time.mktime(ttime) ) )
+    ttime = time_dys.utctimetuple()         #; print(ttime)
+    db.zadd(PRE + "index", redis_key, int(time.mktime(ttime)))
 
-    if log:
-        with open(my_config["out_file"], 'a') as fl:
-            fl.write("\n##### %s ##### %s\n" % (time.asctime(), key) )
+    if LOG:
+        with open(CFG["out_file"], 'a') as fl:
+            fl.write("\n##### %s ##### %s\n" % (time.asctime(), key))
             fl.write(jdump)
-        if debug:
+        if DEBUG:
             print("-->", arr["author"], arr['time'])
-        with open(my_config["log_file"], 'a') as fl:
+        with open(CFG["log_file"], 'a') as fl:
             fl.write("%s POST   %s %s\n" % (time.asctime(), arr["author"], arr['time']))
 
 
-def process_block(br, rpc):
+def stop_tags(metadata):
+    ''' Check if tags contain stop words'''
+    jdata = json.loads(metadata["json_metadata"])
+    if DEBUG:
+        print(jdata["tags"])
+    for tag in jdata["tags"]:
+        if tag in STOP:
+            if DEBUG:
+                print("STOP tag: %s by %s" % (tag, metadata["author"]))
+            return True
+    return False
 
+
+def process_block(br, rpc):
+    '''Get block by number and parse it'''
     arr = {}
     dys = rpc.get_block(br)
     txs = dys['transactions']
@@ -91,17 +110,18 @@ def process_block(br, rpc):
         for operation in tx['operations']:
 
             if operation[0] == 'comment' and \
-                operation[1]["parent_author"] == "": # original post
+                operation[1]["parent_author"] == "":  # original post
 
-                if debug:
-                    print(br)
-                    pp.pprint(tx['operations'])
+                if DEBUG:
+                    #print(br)
+                    pp.pprint(operation[1])
+                    #pp.pprint(tx['operations'])
                     #pp.pprint(dys)
                     #print(dys['previous'], dys['timestamp'])
 
-                if operation[0] == 'comment':
+                if operation[1]["author"] in FOLLOW:
 
-                    if operation[1]["author"] in following and \
+                    if not stop_tags(operation[1]) and \
                         operation[1]["parent_author"] == "" and \
                         operation[1]["body"][0:2] != "@@":
                         arr = {"time":   dys['timestamp'],
@@ -120,15 +140,15 @@ while True:
 
     for block in range(last_block, li_block+1):
 
-        process_block(block, rpc)
+        process_block(block, RPC)
         block_count += 1
-        if debug:
+        if DEBUG:
             print(time.asctime(), block)
-        time.sleep(my_config['request_timeout'])
+        time.sleep(CFG['request_timeout'])
 
     last_block = li_block
-    time.sleep(my_config['sleep_time'])
-    props = rpc.get_dynamic_global_properties()
+    time.sleep(CFG['sleep_time'])
+    props = RPC.get_dynamic_global_properties()
     li_block = props['last_irreversible_block_num']
-    if debug:
+    if DEBUG:
         print("#", time.asctime(), li_block)
