@@ -16,23 +16,16 @@ import dateutil.parser
 
 import redis
 
-from pistonapi.steemnoderpc import SteemNodeRPC
+#from pistonapi.steemnoderpc import SteemNodeRPC
+from steem import Steem
 
 # My config
 CFG = yaml.load(open(os.environ["STEEM_UP"]))
 DEBUG = CFG['debug']
 LOG = CFG['log']
-RPC = SteemNodeRPC(CFG['rpc'])
+RPC = Steem(nodes=[CFG['rpc']])
 PRE = CFG['prefix']
 DAYS = int(CFG['exp_days'])
-
-try:
-    rdb = redis.Redis(host="localhost", port=6379)
-except Exception:
-    print("Error connection to Redis DB")
-    sys.exit(0)
-
-rdb.set(PRE + "limit", CFG['limit'])
 
 FOLLOW = CFG['following']
 STOP = CFG['stop_tags']
@@ -53,6 +46,14 @@ time_last_block = dateutil.parser.parse(last_block_time)
 
 last_block = li_block
 block_count = 0
+
+try:
+    rdb = redis.Redis(host="localhost", port=6379)
+except Exception:
+    print("Error connection to Redis DB")
+    sys.exit(0)
+
+rdb.set(PRE + "limit", CFG['limit'])
 
 
 def update_rdb(arr, db):
@@ -103,7 +104,10 @@ def process_block(br, rpc):
     '''Get block by number and parse it'''
     arr = {}
     dys = rpc.get_block(br)
-    txs = dys['transactions']
+    try:
+        txs = dys['transactions']
+    except TypeError:
+        return
 
     for tx in txs:
 

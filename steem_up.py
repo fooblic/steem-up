@@ -3,6 +3,7 @@
 Read new posts from Redis and upvote it if not exeed the limit
 '''
 import sys
+import os
 import random
 import time
 import json
@@ -20,15 +21,9 @@ from steem import Steem
 pp = pprint.PrettyPrinter(indent=4)
 
 try:
-    rdb = redis.Redis(host="localhost", port=6379)
-except Exception:
-    print("Error connection to Redis DB")
-    sys.exit(0)
-
-try:
-    cfg = yaml.load(open("steem_up.yml"))
-except Exception:
-    print("No config file 'steem_up.yml'!")
+    cfg = yaml.load(open(os.environ["STEEM_UP"]))
+except Exception as e:
+    print("Could not load config 'steem_up.yml'! %s" % e)
     sys.exit(0)
 
 debug  = cfg['debug']
@@ -58,11 +53,17 @@ except Exception as e:
     print("Error: %s" % e)
     sys.exit(0)
 
-steem = Steem(keys=out, node=cfg['rpc'])
+steem = Steem(keys=out, nodes = [cfg['rpc']])
 
 pp.pprint(steem.get_account(cfg['account']))
 del pk
 del out
+
+try:
+    rdb = redis.Redis(host="localhost", port=6379)
+except Exception:
+    print("Error connection to Redis DB")
+    sys.exit(0)
 
 
 def voting(vkey, vurl, vlimit):
