@@ -2,7 +2,7 @@
 
 ## steem_follow
 
-Configuration parameters stored in *steem_up.yml* local YAML-file, which contains a list of authors you are follow. The *steem_follow.py* script read config at start-up and begin to retrieve last posts from Steem blockchain ("[piston-lib](https://github.com/xeroc/piston-lib)" module is used). If the post author is on the following list, the post data stored in a Redis database till expired. A hash of a post body is used as a key in Redis DB. In order to distinguish initial post from post edition (only diff is usually posted after edition), the script check first symbols in the body:
+Configuration parameters stored in *steem_up.yml* local YAML-file, which contains a list of authors you are follow. The *steem_follow.py* script read config at start-up and begin to retrieve last posts from Steem blockchain ([steem-python](https://github.com/Netherdrake/steem-python) library is used). If the post author is on the following list, the post data stored in a Redis database till expired. A hash of a post body is used as a key in Redis DB. In order to distinguish initial post from post edition (only diff is usually posted after edition), the script check first symbols in the body:
 ```
 if operation[1]["author"] in following and \   # author is on the list
     operation[1]["parent_author"] == "" and \  # not a comment
