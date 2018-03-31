@@ -1,0 +1,16 @@
+[Unit]
+Description = STEEM Follow daemon
+After = network.target
+
+[Service]
+Type = forking
+User = steem
+Group = steem
+Environment = "STEEM_UP=/etc/steem/steem_up.yml"
+ExecStart = /usr/local/bin/steem_follow.sh start
+ExecStop = /usr/local/bin/steem_follow.sh stop
+ExecReload = /usr/local/bin/steem_follow.sh reload
+Restart = always
+
+[Install]
+WantedBy = multi-user.target

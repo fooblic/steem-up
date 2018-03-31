@@ -19,6 +19,10 @@ import redis
 #from pistonapi.steemnoderpc import SteemNodeRPC
 from steem import Steem
 
+PID = os.getpid()
+with open("/var/run/steem/steem_follow.pid", 'w') as fl:
+    fl.write(str(PID))
+
 # My config
 CFG = yaml.load(open(os.environ["STEEM_UP"]))
 DEBUG = CFG['debug']
@@ -31,7 +35,7 @@ FOLLOW = CFG['following']
 STOP = CFG['stop_tags']
 
 config = RPC.get_config()
-block_interval = config["STEEMIT_BLOCK_INTERVAL"]
+block_interval = config["STEEM_BLOCK_INTERVAL"]
 
 pp = pprint.PrettyPrinter(indent=4)
 pp.pprint(config)
@@ -78,13 +82,15 @@ def update_rdb(arr, db):
     db.zadd(PRE + "index", redis_key, int(time.mktime(ttime)))
 
     if LOG:
-        with open(CFG["out_file"], 'a') as fl:
-            fl.write("\n##### %s ##### %s\n" % (time.asctime(), key))
-            fl.write(jdump)
-        if DEBUG:
-            print("-->", arr["author"], arr['time'])
+        
         with open(CFG["log_file"], 'a') as fl:
             fl.write("%s POST   %s %s\n" % (time.asctime(), arr["author"], arr['time']))
+
+        if DEBUG:
+            print("-->", arr["author"], arr['time'])
+            with open(CFG["out_file"], 'a') as fl:
+                fl.write("\n##### %s ##### %s\n" % (time.asctime(), key))
+                fl.write(jdump)
 
 
 def stop_tags(metadata):
