@@ -1,14 +1,17 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 '''Get last day upvoted report and send over xmpp'''
 import os
 import pprint
 import json
 import time
+import subprocess
 
 import redis
 import yaml
 
-import jabber_send
+from steem import Steem
+
+#import jabber_send  # for python2.7
 
 CFG = yaml.load(open(os.environ["STEEM_UP"]))
 LOG = CFG['log']
@@ -33,14 +36,26 @@ for post in redis_keys[::-1]:  # from the list end
     posts.append("%s - %s" % (item["time"], url))
     authors.add(item['author'])
 
-report = "For last 24h\n "
-report += "%.1f rate limit\n" % float(rdb.get(PRE + "limit"))
-report += "%s posts with authors:\n" % len(posts)
+steem = Steem(nodes = [CFG['rpc']])
+ACCOUNT = steem.get_account(CFG['account'])
+
+report = "Last: %s" % ACCOUNT["last_vote_time"]
+report += "\nVP: %s" % str(ACCOUNT["voting_power"] / 100)
+report += "\nRate limit: %.1f" % float(rdb.get(PRE + "limit"))
+report += "\n%s posts with authors:\n" % len(posts)
 report += ", ".join(str(s) for s in authors)
+report += "\nReward: %s" % ACCOUNT["reward_vesting_steem"]
+
+#if posts:
+#    jabber_send.send_xmpp(report)
+    #jabber_send.send_xmpp("\n".join(posts))
 
 if posts:
-    jabber_send.send_xmpp(report)
-    #jabber_send.send_xmpp("\n".join(posts))
+    p = subprocess.Popen(['./xsend.py', report],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
+    output, err = p.communicate()
+    print(output, err)
 
 pp.pprint(report)
 

@@ -24,7 +24,7 @@ if len(sys.argv) < 1:
 
 text = ' '.join(sys.argv[1:])
 
-config_file = "/etc/xsend.yml"
+config_file = "/etc/jabber_ru.yml"
 try:
     Conf = yaml.load( open(config_file) )
     jidparams = { 'jid': Conf["username"], 'password': Conf["password"] }
